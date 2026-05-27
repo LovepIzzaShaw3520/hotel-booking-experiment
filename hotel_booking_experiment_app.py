@@ -163,6 +163,10 @@ st.markdown(
     .image-note {font-size:12px;color:#8a8178;margin-top:5px;}
     .hotel-gallery img {border-radius:18px; object-fit:cover;}
     .room-photo img {border-radius:16px; object-fit:cover;}
+    .fixed-img {width:100%; height:100%; object-fit:cover; border-radius:16px; display:block;}
+    .img-main {height:360px; overflow:hidden; border-radius:16px; background:#f3f4f6;}
+    .img-gallery {height:210px; overflow:hidden; border-radius:16px; background:#f3f4f6;}
+    .img-list {height:150px; overflow:hidden; border-radius:14px; background:#f3f4f6;}
     .ota-shell {width:100%; max-width:1080px; margin:auto; border:1px solid #e5e1dc; border-radius:24px; background:#f7f8fa; padding:18px; box-shadow:0 10px 35px rgba(0,0,0,.08);}
     .ota-inner {background:#fff; border-radius:20px; padding:22px; min-height:520px;}
     .ota-header {display:flex; justify-content:space-between; align-items:center; font-size:22px; font-weight:850; margin-bottom:12px;}
@@ -396,6 +400,18 @@ def skip_campaign_order():
     st.session_state.cart_campaign_price = 0.0
     log_event("skip_campaign", "点击暂不参与")
     st.toast("已选择暂不参与公益加购。", icon="ℹ️")
+
+
+def fixed_image(url, height=220, radius=16):
+    """固定比例裁切图片，避免 OTA 酒店图片高低不一、位置混乱。"""
+    st.markdown(
+        f"""
+        <div style="width:100%; height:{height}px; overflow:hidden; border-radius:{radius}px; background:#f3f4f6;">
+            <img src="{url}" style="width:100%; height:100%; object-fit:cover; display:block;" />
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def show_campaign_status():
@@ -767,7 +783,7 @@ def render_ota_home():
         st.markdown("<div class='ota-list-card'>", unsafe_allow_html=True)
         c1, c2, c3 = st.columns([1.1, 2.7, 1])
         with c1:
-            st.image(hotel["img"], use_container_width=True)
+            fixed_image(hotel["img"], height=150, radius=14)
         with c2:
             st.markdown(f"<div class='ota-list-title'>{hotel['name']}<span class='ota-list-en'>{hotel['en']}</span></div>", unsafe_allow_html=True)
             st.markdown(f"<span class='ota-score'>{hotel['score']} {hotel['comment']}</span> <span class='ota-distance'>{hotel['distance']}</span>", unsafe_allow_html=True)
@@ -804,7 +820,7 @@ def render_ota_detail():
 
     c1, c2 = st.columns([1.4, 1])
     with c1:
-        st.image(hotel_img, use_container_width=True)
+        fixed_image(hotel_img, height=360, radius=16)
     with c2:
         st.markdown(f"### {hotel_name}")
         st.markdown(f"<span class='ota-score'>{hotel_score} 棒</span> <span class='small-muted'>{hotel_en} · {hotel_desc}</span>", unsafe_allow_html=True)
@@ -815,11 +831,11 @@ def render_ota_detail():
     st.markdown("#### 酒店图片")
     g1, g2, g3 = st.columns(3)
     with g1:
-        st.image(hotel_gallery[0], use_container_width=True)
+        fixed_image(hotel_gallery[0], height=210, radius=16)
     with g2:
-        st.image(hotel_gallery[1], use_container_width=True)
+        fixed_image(hotel_gallery[1], height=210, radius=16)
     with g3:
-        st.image(hotel_gallery[2], use_container_width=True)
+        fixed_image(hotel_gallery[2], height=210, radius=16)
 
     maybe_show_nudge()
     if st.button("选择房型", type="primary", use_container_width=True):
