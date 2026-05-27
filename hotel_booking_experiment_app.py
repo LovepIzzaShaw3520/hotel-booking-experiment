@@ -40,6 +40,7 @@ STAGES = ["浏览首页", "酒店详情", "房型选择", "订单确认", "支�
 DEFAULT_STAGE_MAP = {
     "低频：仅支付前出现1次": ["订单确认"],
     "中频：浏览与订单阶段出现2次": ["酒店详情", "订单确认"],
+    "三频：浏览、房型与订单阶段出现3次": ["酒店详情", "房型选择", "订单确认"],
     "高频：多阶段重复出现4次": ["浏览首页", "酒店详情", "房型选择", "订单确认"],
 }
 
@@ -196,10 +197,12 @@ def get_initial_interface_mode():
 
 
 def get_initial_nudge_frequency():
-    """受试者页面可通过 URL 参数切换频率：?freq=low / medium / high。"""
+    """受试者页面可通过 URL 参数切换频率：?freq=low / medium / three / high。"""
     freq = st.query_params.get("freq", "medium").lower()
     if freq in ["low", "1", "single"]:
         return "低频：仅支付前出现1次"
+    if freq in ["three", "3", "triple"]:
+        return "三频：浏览、房型与订单阶段出现3次"
     if freq in ["high", "4", "many"]:
         return "高频：多阶段重复出现4次"
     return "中频：浏览与订单阶段出现2次"
@@ -261,9 +264,14 @@ def init_state():
 init_state()
 
 
+def now_china_time_str():
+    """返回东八区时间字符串，避免服务器默认 UTC 导致提交时间不准。"""
+    return (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
+
+
 def log_event(event_type, detail=""):
     event = {
-        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "time": now_china_time_str(),
         "participant_id": st.session_state.participant_id,
         "stage": st.session_state.stage,
         "event_type": event_type,
@@ -288,10 +296,12 @@ def save_result_to_csv(result):
 
 
 def reset_experiment():
-    keep_admin = st.query_params.get("admin", "0")
+    """重置当前受试者状态，但保留 URL 中的实验条件参数。"""
+    keep_params = dict(st.query_params)
     for key in list(st.session_state.keys()):
         del st.session_state[key]
-    st.query_params["admin"] = keep_admin
+    for k, v in keep_params.items():
+        st.query_params[k] = v
     init_state()
     st.rerun()
 
@@ -329,6 +339,13 @@ def get_product_text():
     )
 
 
+def get_campaign_price():
+    """高匹配动物玩偶129元；低匹配明信片159元。"""
+    if st.session_state.product_cause_fit.startswith("高匹配"):
+        return 129.0
+    return 159.0
+
+
 def get_campaign_image_path():
     """根据高/低匹配度返回公益产品图片。图片不存在时返回 None，避免程序报错。"""
     if st.session_state.product_cause_fit.startswith("高匹配"):
@@ -344,14 +361,15 @@ def get_motivation_text():
 
 def add_campaign_to_order():
     product_name, _ = get_product_text()
+    campaign_price = get_campaign_price()
     st.session_state.joined_campaign = True
     st.session_state.campaign_choice_made = True
-    st.session_state.donation_amount = 9.9
+    st.session_state.donation_amount = campaign_price
     st.session_state.campaign_product_name = product_name
     st.session_state.cart_campaign_added = True
     st.session_state.cart_campaign_name = product_name
-    st.session_state.cart_campaign_price = 9.9
-    log_event("join_campaign", f"加入公益加购：{product_name} ¥9.9")
+    st.session_state.cart_campaign_price = campaign_price
+    log_event("join_campaign", f"加入公益加购：{product_name} ¥{campaign_price}")
     st.toast("已加入公益加购，订单金额已更新。", icon="✅")
 
 
@@ -383,7 +401,7 @@ def skip_campaign_order():
 def show_campaign_status():
     if st.session_state.get("cart_campaign_added", False):
         st.markdown(
-            f"<span class='success-tag'>已加入购物车：{st.session_state.cart_campaign_name} ¥{st.session_state.cart_campaign_price}</span>",
+            f"<span class='success-tag'>已加入购物车：{st.session_state.cart_campaign_name} ¥{st.session_state.cart_campaign_price:g}</span>",
             unsafe_allow_html=True,
         )
     elif st.session_state.campaign_choice_made:
@@ -435,7 +453,7 @@ def show_nudge(stage_name):
         c1, c2, c3 = st.columns([1.45, 1.1, 3.2])
         with c1:
             st.button(
-                "＋加入公益项目 ¥9.9",
+                f"＋加入公益项目 ¥{get_campaign_price():g}",
                 key=f"join_campaign_btn_{stage_name}",
                 on_click=add_campaign_to_order,
                 type="secondary",
@@ -979,7 +997,7 @@ def render_survey():
     if not st.session_state.survey_submitted:
         if st.button("提交问卷", type="primary"):
             result = {
-                "submit_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "submit_time": now_china_time_str(),
                 "participant_id": st.session_state.participant_id,
                 "interface_mode": st.session_state.interface_mode,
                 "nudge_frequency": st.session_state.nudge_frequency,
@@ -1014,10 +1032,13 @@ def render_survey():
             save_result_to_csv(result)
             save_events_to_csv()
             st.session_state.survey_submitted = True
-            st.success("问卷已提交，感谢您的参与！")
+            st.success("问卷已提交，感谢您的参与！数据已保存。")
             st.rerun()
     else:
-        st.success("问卷已提交，感谢您的参与！")
+        st.success("问卷已提交，感谢您的参与！数据已保存。")
+        st.info("如需让下一位参与者在同一实验条件下继续测试，请点击下方按钮。")
+        if st.button("开始下一位参与者测试", type="primary"):
+            reset_experiment()
 
 
 # =========================
@@ -1065,6 +1086,7 @@ def make_participant_url():
     freq_map = {
         "低频：仅支付前出现1次": "low",
         "中频：浏览与订单阶段出现2次": "medium",
+        "三频：浏览、房型与订单阶段出现3次": "three",
         "高频：多阶段重复出现4次": "high",
     }
     fit = "low" if st.session_state.product_cause_fit.startswith("低匹配") else "high"
@@ -1182,7 +1204,7 @@ def render_admin_panel():
 
             参数说明：
             - `mode=hotel` 或 `mode=ota`：酒店官网界面 / OTA界面
-            - `freq=low / medium / high`：低频 / 中频 / 高频
+            - `freq=low / medium / three / high`：低频 / 中频 / 三频 / 高频
             - `fit=high / low`：高匹配 / 低匹配
             - `motive=high / low`：高利他动机 / 低利他动机
 
@@ -1199,4 +1221,3 @@ if is_admin_page():
     render_admin_panel()
 else:
     render_participant_app()
-
