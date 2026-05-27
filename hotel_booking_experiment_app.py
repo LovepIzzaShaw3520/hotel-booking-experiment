@@ -85,6 +85,7 @@ OTA_HOTELS = [
         "desc": "近商圈 · 舒适型酒店 · 商务休闲皆宜",
         "distance": "距市中心约1.2公里",
         "img": HOTEL_IMAGES[0],
+        "gallery": [HOTEL_IMAGES[1], HOTEL_IMAGES[2], HOTEL_IMAGES[3]],
         "badges": ["近地铁", "免费Wi-Fi", "好评高", "可取消"],
         "is_target": True,
     },
@@ -97,6 +98,11 @@ OTA_HOTELS = [
         "desc": "近景点 · 设计感强 · 适合情侣出游",
         "distance": "距市中心约1.8公里",
         "img": HOTEL_IMAGES[1],
+        "gallery": [
+            "https://images.unsplash.com/photo-1598928506311-c55ded91a20c?q=80&w=1200&auto=format&fit=crop",
+            "https://images.unsplash.com/photo-1582719508461-905c673771fd?q=80&w=1200&auto=format&fit=crop",
+            "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?q=80&w=1200&auto=format&fit=crop",
+        ],
         "badges": ["设计感", "安静", "位置好"],
         "is_target": False,
     },
@@ -109,6 +115,11 @@ OTA_HOTELS = [
         "desc": "交通便利 · 适合差旅 · 性价比高",
         "distance": "距市中心约2.4公里",
         "img": HOTEL_IMAGES[2],
+        "gallery": [
+            "https://images.unsplash.com/photo-1584132967334-10e028bd69f7?q=80&w=1200&auto=format&fit=crop",
+            "https://images.unsplash.com/photo-1540518614846-7eded433c457?q=80&w=1200&auto=format&fit=crop",
+            "https://images.unsplash.com/photo-1611892440504-42a792e24d32?q=80&w=1200&auto=format&fit=crop",
+        ],
         "badges": ["性价比", "商务", "可取消"],
         "is_target": False,
     },
@@ -151,15 +162,20 @@ st.markdown(
     .image-note {font-size:12px;color:#8a8178;margin-top:5px;}
     .hotel-gallery img {border-radius:18px; object-fit:cover;}
     .room-photo img {border-radius:16px; object-fit:cover;}
-    .ota-shell {max-width:480px; margin:auto; border:1px solid #e5e1dc; border-radius:30px; background:#f7f8fa; padding:14px; box-shadow:0 10px 35px rgba(0,0,0,.10);}
-    .ota-inner {background:#fff; border-radius:24px; padding:16px; min-height:720px;}
+    .ota-shell {width:100%; max-width:1080px; margin:auto; border:1px solid #e5e1dc; border-radius:24px; background:#f7f8fa; padding:18px; box-shadow:0 10px 35px rgba(0,0,0,.08);}
+    .ota-inner {background:#fff; border-radius:20px; padding:22px; min-height:520px;}
     .ota-header {display:flex; justify-content:space-between; align-items:center; font-size:22px; font-weight:850; margin-bottom:12px;}
     .ota-search {background:#f2f4f7;border-radius:14px;padding:12px;margin-bottom:12px;color:#555;font-size:14px;}
     .ota-list-card {border:1px solid #e7e1d8; border-radius:18px; padding:12px; background:#fff; margin-bottom:14px; box-shadow:0 6px 18px rgba(0,0,0,.05);}
-    .ota-list-title {font-size:17px; font-weight:800; margin-bottom:4px;}
-    .ota-tag {display:inline-block; background:#f0f6ff; color:#245d9c; padding:3px 7px; border-radius:999px; font-size:11px; margin-right:4px; margin-bottom:4px;}
-    .ota-score {font-weight:850; color:#fff; background:#1d63b7; border-radius:8px; padding:3px 6px; font-size:12px;}
-    .ota-price {font-size:20px; font-weight:850; color:#e24a1a; text-align:right;}
+    .ota-list-title {font-size:24px; font-weight:850; margin-bottom:8px; color:#202124; line-height:1.3;}
+    .ota-list-en {font-size:14px; color:#8a8f98; font-weight:700; margin-left:6px;}
+    .ota-desc {font-size:16px; color:#4b5563; line-height:1.6; margin:8px 0;}
+    .ota-distance {font-size:15px; color:#666; margin-left:8px;}
+    .ota-tag {display:inline-block; background:#f0f6ff; color:#245d9c; padding:5px 10px; border-radius:999px; font-size:13px; margin-right:6px; margin-bottom:6px;}
+    .ota-score {font-weight:850; color:#fff; background:#1d63b7; border-radius:8px; padding:5px 8px; font-size:14px;}
+    .ota-price {font-size:26px; font-weight:850; color:#e24a1a; text-align:right; margin-bottom:12px;}
+    .survey-question {font-size:18px; font-weight:700; color:#2f3136; line-height:1.65; margin:24px 0 8px 0;}
+    .survey-hint {font-size:13px; color:#777; margin-bottom:4px;}
     .ota-room-card {border:1px solid #e8e2da; border-radius:16px; background:#fff; padding:12px; margin-bottom:12px; box-shadow:0 5px 16px rgba(0,0,0,.04);}
     </style>
     """,
@@ -230,6 +246,12 @@ def init_state():
         "paid": False,
         "events": [],
         "survey_submitted": False,
+        "selected_hotel_name": HOTEL_CN,
+        "selected_hotel_en": HOTEL_EN,
+        "selected_hotel_score": "4.8",
+        "selected_hotel_desc": "近商圈 · 舒适型酒店 · 商务休闲皆宜",
+        "selected_hotel_img": HOTEL_IMAGES[0],
+        "selected_hotel_gallery": [HOTEL_IMAGES[1], HOTEL_IMAGES[2], HOTEL_IMAGES[3]],
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -602,7 +624,8 @@ def render_rooms():
 def order_summary(show_actions=True):
     st.markdown("<div class='order-box'>", unsafe_allow_html=True)
     st.markdown("<h3>订单摘要</h3>", unsafe_allow_html=True)
-    st.markdown(f"<div class='cart-line'><span>酒店</span><b>{HOTEL_CN}</b></div>", unsafe_allow_html=True)
+    hotel_name = st.session_state.get("selected_hotel_name", HOTEL_CN)
+    st.markdown(f"<div class='cart-line'><span>酒店</span><b>{hotel_name}</b></div>", unsafe_allow_html=True)
     st.markdown(f"<div class='cart-line'><span>房型</span><b>{st.session_state.selected_room or '未选择'}</b></div>", unsafe_allow_html=True)
     st.markdown(f"<div class='cart-line'><span>入住</span><b>{st.session_state.check_in}</b></div>", unsafe_allow_html=True)
     st.markdown(f"<div class='cart-line'><span>离店</span><b>{st.session_state.check_out}</b></div>", unsafe_allow_html=True)
@@ -678,65 +701,108 @@ def render_payment():
 
 def ota_shell_start():
     """
-    V4.5 修复：不再用跨组件的 HTML <div> 包裹 Streamlit 组件。
-    原因：Streamlit 的 st.image / st.button / st.date_input 等组件不能稳定嵌套在前一次 st.markdown 打开的 div 中，
-    容易出现一个巨大的空白手机壳。这里改为普通容器，避免 OTA 页面出现空白。
+    V4.8修复：去掉跨组件 HTML 外壳。
+    Streamlit 组件不能稳定放进一个长期开着的 div 里，否则会出现大空白框。
     """
-    st.markdown("<div style='max-width:520px;margin:auto;'>", unsafe_allow_html=True)
+    return None
 
 
 def ota_shell_end():
-    st.markdown("</div>", unsafe_allow_html=True)
+    return None
+
+
+def choose_hotel(hotel):
+    st.session_state.selected_hotel_name = hotel["name"]
+    st.session_state.selected_hotel_en = hotel["en"]
+    st.session_state.selected_hotel_score = hotel["score"]
+    st.session_state.selected_hotel_desc = hotel["desc"]
+    st.session_state.selected_hotel_img = hotel["img"]
+    st.session_state.selected_hotel_gallery = hotel.get("gallery", [HOTEL_IMAGES[1], HOTEL_IMAGES[2], HOTEL_IMAGES[3]])
+    log_event("select_hotel", f"{hotel['name']} ¥{hotel['price']}起")
+    go_stage("酒店详情")
 
 
 def render_ota_home():
     ota_shell_start()
-    st.markdown("<div class='ota-header'><span>酒店预订</span><span style='font-size:13px;color:#888;'>筛选 · 地图</span></div>", unsafe_allow_html=True)
-    st.markdown("<div class='ota-search'>已检索：城市核心区域 · 1晚 · 1人入住</div>", unsafe_allow_html=True)
+    st.markdown("<div class='ota-header'><span>酒店预订</span><span style='font-size:13px;color:#888;'>筛选 · 排序 · 地图</span></div>", unsafe_allow_html=True)
+    st.markdown("<div class='ota-search'>已检索：城市核心区域 · 酒店列表 · 请选择酒店并完成预订</div>", unsafe_allow_html=True)
     show_steps()
+
+    st.markdown("#### 修改入住信息")
+    d1, d2, d3, d4 = st.columns([1, 1, 1, 1.1])
+    with d1:
+        st.date_input("入住日期", key="check_in")
+    with d2:
+        st.date_input("离店日期", key="check_out")
+    with d3:
+        st.number_input("入住人数", min_value=1, max_value=4, key="guest_count")
+    with d4:
+        st.write("")
+        st.write("")
+        st.button("更新搜索条件", disabled=not is_valid_date_range(), use_container_width=True)
+    show_date_error_if_needed()
+
     maybe_show_nudge()
 
-    st.markdown("#### 为您推荐")
+    st.markdown("#### 推荐酒店")
     for i, hotel in enumerate(OTA_HOTELS):
         st.markdown("<div class='ota-list-card'>", unsafe_allow_html=True)
-        c1, c2 = st.columns([1.1, 2])
+        c1, c2, c3 = st.columns([1.1, 2.7, 1])
         with c1:
             st.image(hotel["img"], use_container_width=True)
         with c2:
-            st.markdown(f"<div class='ota-list-title'>{hotel['name']}</div>", unsafe_allow_html=True)
-            st.markdown(f"<span class='ota-score'>{hotel['score']} {hotel['comment']}</span> <span class='small-muted'>{hotel['distance']}</span>", unsafe_allow_html=True)
-            st.caption(f"{hotel['en']} · {hotel['desc']}")
+            st.markdown(f"<div class='ota-list-title'>{hotel['name']}<span class='ota-list-en'>{hotel['en']}</span></div>", unsafe_allow_html=True)
+            st.markdown(f"<span class='ota-score'>{hotel['score']} {hotel['comment']}</span> <span class='ota-distance'>{hotel['distance']}</span>", unsafe_allow_html=True)
+            st.markdown(f"<div class='ota-desc'>{hotel['desc']}</div>", unsafe_allow_html=True)
             badges_html = "".join([f"<span class='ota-tag'>{b}</span>" for b in hotel["badges"]])
             st.markdown(badges_html, unsafe_allow_html=True)
-            c_price, c_btn = st.columns([1, 1])
-            with c_price:
-                st.markdown(f"<div class='ota-price'>¥{hotel['price']}起</div>", unsafe_allow_html=True)
-            with c_btn:
-                if hotel.get("is_target"):
-                    if st.button("查看", key=f"view_hotel_{i}", type="primary", use_container_width=True):
-                        go_stage("酒店详情")
-                        st.rerun()
-                else:
-                    st.button("查看", key=f"disabled_hotel_{i}", disabled=True, use_container_width=True)
+        with c3:
+            st.markdown(f"<div class='ota-price'>¥{hotel['price']}起</div>", unsafe_allow_html=True)
+            st.button(
+                "查看酒店",
+                key=f"view_hotel_{i}",
+                on_click=choose_hotel,
+                args=(hotel,),
+                type="primary",
+                use_container_width=True,
+                disabled=not is_valid_date_range(),
+            )
         st.markdown("</div>", unsafe_allow_html=True)
     ota_shell_end()
 
 
 def render_ota_detail():
     ota_shell_start()
-    st.markdown(f"<div class='ota-header'><span>{HOTEL_CN}</span><span style='font-size:13px;color:#888;'>收藏</span></div>", unsafe_allow_html=True)
+    hotel_name = st.session_state.get("selected_hotel_name", HOTEL_CN)
+    hotel_en = st.session_state.get("selected_hotel_en", HOTEL_EN)
+    hotel_score = st.session_state.get("selected_hotel_score", "4.8")
+    hotel_desc = st.session_state.get("selected_hotel_desc", "舒适型酒店")
+    hotel_img = st.session_state.get("selected_hotel_img", HOTEL_IMAGES[0])
+    hotel_gallery = st.session_state.get("selected_hotel_gallery", [HOTEL_IMAGES[1], HOTEL_IMAGES[2], HOTEL_IMAGES[3]])
+
+    st.markdown(f"<div class='ota-header'><span>{hotel_name}</span><span style='font-size:13px;color:#888;'>收藏 · 分享</span></div>", unsafe_allow_html=True)
     show_steps()
     back_button("返回酒店列表")
-    st.image(HOTEL_IMAGES[0], use_container_width=True)
-    st.markdown(f"<span class='ota-score'>4.8 棒</span> <span class='small-muted'>{HOTEL_EN} · 舒适型酒店</span>", unsafe_allow_html=True)
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("<span class='ota-tag'>近地铁</span><span class='ota-tag'>早餐可选</span><span class='ota-tag'>免费Wi-Fi</span><span class='ota-tag'>24小时前台</span>", unsafe_allow_html=True)
-    st.caption("位置便利，客房温暖舒适，适合商务出行与休闲住宿。")
-    c1, c2 = st.columns(2)
+
+    c1, c2 = st.columns([1.4, 1])
     with c1:
-        st.image(HOTEL_IMAGES[1], use_container_width=True)
+        st.image(hotel_img, use_container_width=True)
     with c2:
-        st.image(HOTEL_IMAGES[2], use_container_width=True)
+        st.markdown(f"### {hotel_name}")
+        st.markdown(f"<span class='ota-score'>{hotel_score} 棒</span> <span class='small-muted'>{hotel_en} · {hotel_desc}</span>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<span class='ota-tag'>近地铁</span><span class='ota-tag'>早餐可选</span><span class='ota-tag'>免费Wi-Fi</span><span class='ota-tag'>24小时前台</span>", unsafe_allow_html=True)
+        st.caption("位置便利，客房温暖舒适，适合商务出行与休闲住宿。")
+
+    st.markdown("#### 酒店图片")
+    g1, g2, g3 = st.columns(3)
+    with g1:
+        st.image(hotel_gallery[0], use_container_width=True)
+    with g2:
+        st.image(hotel_gallery[1], use_container_width=True)
+    with g3:
+        st.image(hotel_gallery[2], use_container_width=True)
+
     maybe_show_nudge()
     if st.button("选择房型", type="primary", use_container_width=True):
         go_stage("房型选择")
@@ -837,7 +903,8 @@ def likert(label, key):
         "6 同意",
         "7 非常同意",
     ]
-    value = st.select_slider(label, options=options, value="4 一般", key=key)
+    st.markdown(f"<div class='survey-question'>{label}</div>", unsafe_allow_html=True)
+    value = st.select_slider(" ", options=options, value="4 一般", key=key, label_visibility="collapsed")
     return slider_value_to_number(value)
 
 
@@ -851,13 +918,15 @@ def frequency_check(label, key):
         "6 多",
         "7 非常多",
     ]
-    value = st.select_slider(label, options=options, value="4 适中", key=key)
+    st.markdown(f"<div class='survey-question'>{label}</div>", unsafe_allow_html=True)
+    value = st.select_slider(" ", options=options, value="4 适中", key=key, label_visibility="collapsed")
     return slider_value_to_number(value)
 
 
 def recall_check(label, key):
     options = ["0次", "1次", "2次", "3次", "4次"]
-    value = st.select_slider(label, options=options, value="2次", key=key)
+    st.markdown(f"<div class='survey-question'>{label}</div>", unsafe_allow_html=True)
+    value = st.select_slider(" ", options=options, value="2次", key=key, label_visibility="collapsed")
     return int(value.replace("次", ""))
 
 
@@ -871,7 +940,8 @@ def motive_scale(label, key):
         "6",
         "7 完全出于社会责任",
     ]
-    value = st.select_slider(label, options=options, value="4", key=key)
+    st.markdown(f"<div class='survey-question'>{label}</div>", unsafe_allow_html=True)
+    value = st.select_slider(" ", options=options, value="4", key=key, label_visibility="collapsed")
     return slider_value_to_number(value)
 
 
@@ -901,8 +971,10 @@ def render_survey():
     altruism_3 = motive_scale("15. 您认为这项公益活动在多大程度上是出于自我导向（利己）的动机，还是出于利他主义的动机？", "altruism_3")
 
     st.markdown("---")
-    birth_year = st.number_input("16. 您的出生年份是", min_value=1940, max_value=date.today().year, value=2000, step=1, key="birth_year")
-    gender = st.radio("17. 您的性别是", options=["男", "女"], horizontal=True, key="gender")
+    st.markdown("<div class='survey-question'>16. 您的出生年份是</div>", unsafe_allow_html=True)
+    birth_year = st.number_input(" ", min_value=1940, max_value=date.today().year, value=2000, step=1, key="birth_year", label_visibility="collapsed")
+    st.markdown("<div class='survey-question'>17. 您的性别是</div>", unsafe_allow_html=True)
+    gender = st.radio(" ", options=["男", "女"], horizontal=True, key="gender", label_visibility="collapsed")
 
     if not st.session_state.survey_submitted:
         if st.button("提交问卷", type="primary"):
@@ -1127,3 +1199,4 @@ if is_admin_page():
     render_admin_panel()
 else:
     render_participant_app()
+
