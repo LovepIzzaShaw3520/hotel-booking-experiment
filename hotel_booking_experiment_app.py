@@ -171,14 +171,48 @@ def is_admin_page():
     return st.query_params.get("admin", "0") == "1"
 
 
+def get_initial_interface_mode():
+    """受试者页面可通过 URL 参数切换界面：?mode=ota 或 ?mode=hotel。"""
+    mode = st.query_params.get("mode", "hotel").lower()
+    if mode in ["ota", "app", "mobile"]:
+        return "OTA界面"
+    return "酒店官网界面"
+
+
+def get_initial_nudge_frequency():
+    """受试者页面可通过 URL 参数切换频率：?freq=low / medium / high。"""
+    freq = st.query_params.get("freq", "medium").lower()
+    if freq in ["low", "1", "single"]:
+        return "低频：仅支付前出现1次"
+    if freq in ["high", "4", "many"]:
+        return "高频：多阶段重复出现4次"
+    return "中频：浏览与订单阶段出现2次"
+
+
+def get_initial_product_fit():
+    """受试者页面可通过 URL 参数切换匹配度：?fit=high / low。"""
+    fit = st.query_params.get("fit", "high").lower()
+    if fit in ["low", "postcard", "l"]:
+        return "低匹配：明信片 × 濒危动物保护"
+    return "高匹配：毛绒公仔 × 濒危动物保护"
+
+
+def get_initial_altruistic_motivation():
+    """受试者页面可通过 URL 参数切换利他动机：?motive=high / low。"""
+    motive = st.query_params.get("motive", "high").lower()
+    if motive in ["low", "business", "self"]:
+        return "低利他动机：公益合作运营推广"
+    return "高利他动机：全部收益捐出"
+
+
 def init_state():
     defaults = {
         "participant_id": str(uuid.uuid4())[:8],
         "stage": "浏览首页",
-        "interface_mode": "酒店官网界面",
-        "nudge_frequency": "中频：浏览与订单阶段出现2次",
-        "product_cause_fit": "高匹配：毛绒公仔 × 濒危动物保护",
-        "altruistic_motivation": "高利他动机：全部收益捐出",
+        "interface_mode": get_initial_interface_mode(),
+        "nudge_frequency": get_initial_nudge_frequency(),
+        "product_cause_fit": get_initial_product_fit(),
+        "altruistic_motivation": get_initial_altruistic_motivation(),
         "selected_room": "",
         "room_price": 0,
         "check_in": date.today() + timedelta(days=7),
@@ -643,11 +677,16 @@ def render_payment():
 # =========================
 
 def ota_shell_start():
-    st.markdown("<div class='ota-shell'><div class='ota-inner'>", unsafe_allow_html=True)
+    """
+    V4.5 修复：不再用跨组件的 HTML <div> 包裹 Streamlit 组件。
+    原因：Streamlit 的 st.image / st.button / st.date_input 等组件不能稳定嵌套在前一次 st.markdown 打开的 div 中，
+    容易出现一个巨大的空白手机壳。这里改为普通容器，避免 OTA 页面出现空白。
+    """
+    st.markdown("<div style='max-width:520px;margin:auto;'>", unsafe_allow_html=True)
 
 
 def ota_shell_end():
-    st.markdown("</div></div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def render_ota_home():
@@ -948,6 +987,20 @@ def render_participant_app():
         render_survey()
 
 
+def make_participant_url():
+    """根据后台当前选择生成受试者测试链接。"""
+    mode = "ota" if st.session_state.interface_mode == "OTA界面" else "hotel"
+    freq_map = {
+        "低频：仅支付前出现1次": "low",
+        "中频：浏览与订单阶段出现2次": "medium",
+        "高频：多阶段重复出现4次": "high",
+    }
+    fit = "low" if st.session_state.product_cause_fit.startswith("低匹配") else "high"
+    motive = "low" if st.session_state.altruistic_motivation.startswith("低利他") else "high"
+    freq = freq_map.get(st.session_state.nudge_frequency, "medium")
+    return f"?mode={mode}&freq={freq}&fit={fit}&motive={motive}"
+
+
 def render_admin_panel():
     st.markdown("<div class='main-title'>后台管理页面</div>", unsafe_allow_html=True)
     st.markdown("<div class='sub-title'>本页面用于设置实验条件、预览受试者页面，并下载实验数据。受试者默认不会看到这里。</div>", unsafe_allow_html=True)
@@ -989,6 +1042,12 @@ def render_admin_panel():
         if st.button("重置实验", type="secondary"):
             reset_experiment()
 
+        st.divider()
+        st.subheader("生成受试者链接")
+        participant_query = make_participant_url()
+        st.code(participant_query, language="text")
+        st.caption("把你的网页基础链接后面接上这段参数，就会打开对应实验条件的受试者页面。")
+
     tab1, tab2, tab3 = st.tabs(["受试者页面预览", "数据下载", "使用说明"])
     with tab1:
         render_participant_app()
@@ -998,24 +1057,64 @@ def render_admin_panel():
             df = pd.read_csv(DATA_PATH)
             st.dataframe(df, use_container_width=True)
             st.download_button("下载实验结果 CSV", data=DATA_PATH.read_bytes(), file_name="experiment_data.csv", mime="text/csv")
+
+            st.markdown("#### 数据管理")
+            st.warning("以下操作会修改服务器端保存的数据，请谨慎使用。")
+            delete_rows = st.multiselect("选择要删除的实验数据行号", options=list(df.index), format_func=lambda x: f"第{x + 1}行")
+            c_del1, c_del2 = st.columns(2)
+            with c_del1:
+                if st.button("删除选中实验数据行", disabled=len(delete_rows) == 0):
+                    new_df = df.drop(index=delete_rows).reset_index(drop=True)
+                    new_df.to_csv(DATA_PATH, index=False, encoding="utf-8-sig")
+                    st.success("已删除选中的实验数据行。")
+                    st.rerun()
+            with c_del2:
+                if st.button("清空全部实验数据", type="secondary"):
+                    DATA_PATH.unlink(missing_ok=True)
+                    st.success("已清空实验数据。")
+                    st.rerun()
         else:
             st.info("目前还没有实验结果数据。")
+
         st.markdown("### 行为日志")
         if EVENT_PATH.exists():
             event_df = pd.read_csv(EVENT_PATH)
             st.dataframe(event_df, use_container_width=True)
             st.download_button("下载行为日志 CSV", data=EVENT_PATH.read_bytes(), file_name="experiment_events.csv", mime="text/csv")
+
+            delete_event_rows = st.multiselect("选择要删除的行为日志行号", options=list(event_df.index), format_func=lambda x: f"第{x + 1}行", key="delete_event_rows")
+            c_log1, c_log2 = st.columns(2)
+            with c_log1:
+                if st.button("删除选中行为日志行", disabled=len(delete_event_rows) == 0):
+                    new_event_df = event_df.drop(index=delete_event_rows).reset_index(drop=True)
+                    new_event_df.to_csv(EVENT_PATH, index=False, encoding="utf-8-sig")
+                    st.success("已删除选中的行为日志行。")
+                    st.rerun()
+            with c_log2:
+                if st.button("清空全部行为日志", type="secondary"):
+                    EVENT_PATH.unlink(missing_ok=True)
+                    st.success("已清空行为日志。")
+                    st.rerun()
         else:
             st.info("目前还没有行为日志。")
     with tab3:
         st.markdown(
             """
-            **受试者链接：** 直接使用普通网页链接，不带 `?admin=1`。  
+            **受试者链接：** 普通网页链接，不带 `?admin=1`。  
             **后台链接：** 在网页链接后加 `?admin=1`。  
 
             例如：
-            - 受试者：`https://your-app.streamlit.app`
-            - 后台：`https://your-app.streamlit.app?admin=1`
+            - 后台：`https://your-app.streamlit.app/?admin=1`
+            - 酒店官网受试者：`https://your-app.streamlit.app/?mode=hotel&freq=medium&fit=high&motive=high`
+            - OTA受试者：`https://your-app.streamlit.app/?mode=ota&freq=medium&fit=high&motive=high`
+
+            参数说明：
+            - `mode=hotel` 或 `mode=ota`：酒店官网界面 / OTA界面
+            - `freq=low / medium / high`：低频 / 中频 / 高频
+            - `fit=high / low`：高匹配 / 低匹配
+            - `motive=high / low`：高利他动机 / 低利他动机
+
+            所以你不需要每个实验条件都重新生成一个网页，只要改后台条件，然后复制生成出来的参数链接即可。
 
             当前版本为测试版。正式实验前建议继续加入：自动随机分组、最短作答时间、注意力检测、重复提交限制。
 
