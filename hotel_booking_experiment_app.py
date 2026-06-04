@@ -375,6 +375,18 @@ def fixed_image(url, height=220, radius=16):
     )
 
 
+def contain_image(url, height=180, radius=16):
+    """完整显示图片，不裁切。用于明信片这种横版产品图。"""
+    st.markdown(
+        f"""
+        <div style="width:100%; height:{height}px; overflow:hidden; border-radius:{radius}px; background:#ffffff; display:flex; align-items:center; justify-content:center;">
+            <img src="{url}" style="max-width:100%; max-height:100%; object-fit:contain; display:block;" />
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def get_product_text():
     if st.session_state.product_cause_fit.startswith("高匹配"):
         return (
@@ -463,7 +475,23 @@ def show_campaign_status():
         st.markdown("<span class='warning-tag'>已选择暂不参与公益加购</span>", unsafe_allow_html=True)
 
 
+def sync_cart_with_current_condition():
+    """确保已加入购物车的公益产品始终与当前实验条件一致。"""
+    current_name, _ = get_product_text()
+    current_price = get_campaign_price()
+    if st.session_state.get("cart_campaign_added", False):
+        if (
+            st.session_state.get("cart_campaign_name") != current_name
+            or float(st.session_state.get("cart_campaign_price", 0)) != float(current_price)
+        ):
+            st.session_state.cart_campaign_name = current_name
+            st.session_state.cart_campaign_price = current_price
+            st.session_state.campaign_product_name = current_name
+            st.session_state.donation_amount = current_price
+
+
 def show_nudge(stage_name):
+    sync_cart_with_current_condition()
     product_name, product_desc = get_product_text()
     motivation_text = get_motivation_text()
     product_image = get_campaign_image_path()
@@ -478,9 +506,10 @@ def show_nudge(stage_name):
     img_col, text_col = st.columns([0.9, 3])
     with img_col:
         if product_image:
-            # 公仔用近似方图；明信片用完整横版比例，避免显示不全。
-            img_height = 170 if st.session_state.product_cause_fit.startswith("高匹配") else 118
-            fixed_image(product_image, height=img_height, radius=12)
+            if st.session_state.product_cause_fit.startswith("高匹配"):
+                fixed_image(product_image, height=170, radius=12)
+            else:
+                contain_image(product_image, height=145, radius=12)
         else:
             st.markdown(
                 "<div class='small-muted' style='padding:22px;border:1px dashed #d8c4aa;border-radius:14px;text-align:center;'>公益产品图片</div>",
@@ -679,6 +708,7 @@ def render_rooms():
 
 
 def order_summary(show_actions=True):
+    sync_cart_with_current_condition()
     st.markdown("<div class='order-box'>", unsafe_allow_html=True)
     st.markdown("<h3>订单摘要</h3>", unsafe_allow_html=True)
     hotel_name = st.session_state.get("selected_hotel_name", HOTEL_CN)
