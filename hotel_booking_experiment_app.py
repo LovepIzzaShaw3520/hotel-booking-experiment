@@ -4,16 +4,19 @@ from datetime import date, timedelta, datetime
 import uuid
 from pathlib import Path
 
+
 # =========================================================
-# 酒店预订实验系统 V4.2
-# 主要功能：
-# 1. 分为“受试者页面”和“后台管理页面”两层。
-# 2. 受试者看不到控制台、条件设置和数据下载。
-# 3. 后台页面通过 URL 参数 ?admin=1 进入。
-# 4. 酒店官网界面加入酒店主图、图集、房型图片。
-# 5. OTA 界面改为更接近真实 OTA 的酒店列表、详情、房型卡片。
-# 6. 公益计划按高匹配/低匹配展示：动物公仔 / 明信片。
-# 7. 最后一页问卷顺序：操纵检验 → 心理机制 → 调节变量 → 人口信息。
+# 酒店预订实验系统 V5.1
+# 功能：
+# 1. 受试者页面 / 后台管理页面分离
+# 2. 酒店官网界面 / OTA界面
+# 3. URL 参数控制实验条件：mode / freq / fit / motive
+# 4. 公益产品：毛绒公仔129元，明信片159元
+# 5. 数字助推频率：1次 / 2次 / 3次 / 4次
+# 6. 高低利他动机文案
+# 7. 订单加购、支付、问卷、数据保存和后台下载
+# 8. 东八区提交时间
+# 9. 问卷可返回上一页，提交后可开始下一位同条件参与者
 # =========================================================
 
 st.set_page_config(
@@ -29,9 +32,6 @@ EVENT_PATH = Path("experiment_events.csv")
 HOTEL_CN = "星澜酒店"
 HOTEL_EN = "Starland Hotel"
 
-# 公益产品图片：请在项目目录中新建 assets 文件夹，并放入这两个图片文件。
-# assets/campaign_toy.png：动物公仔图片
-# assets/campaign_postcard.png：明信片图片
 TOY_IMAGE_PATH = Path("assets/campaign_toy.png")
 POSTCARD_IMAGE_PATH = Path("assets/campaign_postcard.png")
 
@@ -44,7 +44,6 @@ DEFAULT_STAGE_MAP = {
     "高频：多阶段重复出现4次": ["浏览首页", "酒店详情", "房型选择", "订单确认"],
 }
 
-# 图片使用公开图库链接。正式实验时建议换成你自己准备的酒店/房型图片，避免外部链接加载不稳定。
 HOTEL_IMAGES = [
     "https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=1600&auto=format&fit=crop",
     "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?q=80&w=1200&auto=format&fit=crop",
@@ -88,7 +87,6 @@ OTA_HOTELS = [
         "img": HOTEL_IMAGES[0],
         "gallery": [HOTEL_IMAGES[1], HOTEL_IMAGES[2], HOTEL_IMAGES[3]],
         "badges": ["近地铁", "免费Wi-Fi", "好评高", "可取消"],
-        "is_target": True,
     },
     {
         "name": "云栖酒店",
@@ -105,7 +103,6 @@ OTA_HOTELS = [
             "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?q=80&w=1200&auto=format&fit=crop",
         ],
         "badges": ["设计感", "安静", "位置好"],
-        "is_target": False,
     },
     {
         "name": "泊悦酒店",
@@ -122,7 +119,6 @@ OTA_HOTELS = [
             "https://images.unsplash.com/photo-1611892440504-42a792e24d32?q=80&w=1200&auto=format&fit=crop",
         ],
         "badges": ["性价比", "商务", "可取消"],
-        "is_target": False,
     },
 ]
 
@@ -149,7 +145,6 @@ st.markdown(
     .price {font-size:24px; font-weight:850; color:#8b3f20;}
     .nudge-box {border:1.5px solid #ddb985; background:#fffaf4; border-radius:18px; padding:18px 20px; margin:16px 0;}
     .nudge-title {font-size:20px; font-weight:800; color:#5a3518; margin-bottom:10px;}
-    .campaign-img img {border-radius:16px; border:1px solid #ead8c5; object-fit:cover;}
     .success-tag {display:inline-block; background:#e8f7eb; color:#087a37; border:1px solid #bfe8ca; border-radius:999px; padding:7px 12px; font-size:13px; font-weight:700; margin:8px 0;}
     .warning-tag {display:inline-block; background:#fff5df; color:#8a5a00; border:1px solid #f0d28b; border-radius:999px; padding:7px 12px; font-size:13px; font-weight:700; margin:8px 0;}
     .order-box {border:1px solid #e5ded4; border-radius:22px; padding:22px; background:#fff; position:sticky; top:20px; box-shadow:0 8px 26px rgba(0,0,0,.05);}
@@ -159,19 +154,12 @@ st.markdown(
     .steps {display:flex; gap:8px; flex-wrap:wrap; margin:16px 0 22px 0;}
     .step-on {background:#6d4c35;color:white;padding:7px 12px;border-radius:999px;font-size:13px;}
     .step-off {background:#f2eee9;color:#6b625c;padding:7px 12px;border-radius:999px;font-size:13px;}
-    .admin-box {border:1px solid #d6d3d1; border-radius:16px; padding:16px; background:#fafafa; margin-bottom:16px;}
     .image-note {font-size:12px;color:#8a8178;margin-top:5px;}
     .hotel-gallery img {border-radius:18px; object-fit:cover;}
     .room-photo img {border-radius:16px; object-fit:cover;}
-    .fixed-img {width:100%; height:100%; object-fit:cover; border-radius:16px; display:block;}
-    .img-main {height:360px; overflow:hidden; border-radius:16px; background:#f3f4f6;}
-    .img-gallery {height:210px; overflow:hidden; border-radius:16px; background:#f3f4f6;}
-    .img-list {height:150px; overflow:hidden; border-radius:14px; background:#f3f4f6;}
-    .ota-shell {width:100%; max-width:1080px; margin:auto; border:1px solid #e5e1dc; border-radius:24px; background:#f7f8fa; padding:18px; box-shadow:0 10px 35px rgba(0,0,0,.08);}
-    .ota-inner {background:#fff; border-radius:20px; padding:22px; min-height:520px;}
-    .ota-header {display:flex; justify-content:space-between; align-items:center; font-size:22px; font-weight:850; margin-bottom:12px;}
     .ota-search {background:#f2f4f7;border-radius:14px;padding:12px;margin-bottom:12px;color:#555;font-size:14px;}
-    .ota-list-card {border:1px solid #e7e1d8; border-radius:18px; padding:12px; background:#fff; margin-bottom:14px; box-shadow:0 6px 18px rgba(0,0,0,.05);}
+    .ota-header {display:flex; justify-content:space-between; align-items:center; font-size:22px; font-weight:850; margin-bottom:12px;}
+    .ota-list-card {border:1px solid #e7e1d8; border-radius:18px; padding:16px; background:#fff; margin-bottom:16px; box-shadow:0 6px 18px rgba(0,0,0,.05);}
     .ota-list-title {font-size:24px; font-weight:850; margin-bottom:8px; color:#202124; line-height:1.3;}
     .ota-list-en {font-size:14px; color:#8a8f98; font-weight:700; margin-left:6px;}
     .ota-desc {font-size:16px; color:#4b5563; line-height:1.6; margin:8px 0;}
@@ -179,9 +167,9 @@ st.markdown(
     .ota-tag {display:inline-block; background:#f0f6ff; color:#245d9c; padding:5px 10px; border-radius:999px; font-size:13px; margin-right:6px; margin-bottom:6px;}
     .ota-score {font-weight:850; color:#fff; background:#1d63b7; border-radius:8px; padding:5px 8px; font-size:14px;}
     .ota-price {font-size:26px; font-weight:850; color:#e24a1a; text-align:right; margin-bottom:12px;}
+    .ota-room-card {border:1px solid #e8e2da; border-radius:16px; background:#fff; padding:12px; margin-bottom:12px; box-shadow:0 5px 16px rgba(0,0,0,.04);}
     .survey-question {font-size:18px; font-weight:700; color:#2f3136; line-height:1.65; margin:24px 0 8px 0;}
     .survey-hint {font-size:13px; color:#777; margin-bottom:4px;}
-    .ota-room-card {border:1px solid #e8e2da; border-radius:16px; background:#fff; padding:12px; margin-bottom:12px; box-shadow:0 5px 16px rgba(0,0,0,.04);}
     </style>
     """,
     unsafe_allow_html=True,
@@ -193,7 +181,6 @@ def is_admin_page():
 
 
 def get_initial_interface_mode():
-    """受试者页面可通过 URL 参数切换界面：?mode=ota 或 ?mode=hotel。"""
     mode = st.query_params.get("mode", "hotel").lower()
     if mode in ["ota", "app", "mobile"]:
         return "OTA界面"
@@ -201,7 +188,6 @@ def get_initial_interface_mode():
 
 
 def get_initial_nudge_frequency():
-    """受试者页面可通过 URL 参数切换频率：?freq=low / medium / three / high。"""
     freq = st.query_params.get("freq", "medium").lower()
     if freq in ["low", "1", "single"]:
         return "低频：仅支付前出现1次"
@@ -213,7 +199,6 @@ def get_initial_nudge_frequency():
 
 
 def get_initial_product_fit():
-    """受试者页面可通过 URL 参数切换匹配度：?fit=high / low。"""
     fit = st.query_params.get("fit", "high").lower()
     if fit in ["low", "postcard", "l"]:
         return "低匹配：明信片 × 濒危动物保护"
@@ -221,7 +206,6 @@ def get_initial_product_fit():
 
 
 def get_initial_altruistic_motivation():
-    """受试者页面可通过 URL 参数切换利他动机：?motive=high / low。"""
     motive = st.query_params.get("motive", "high").lower()
     if motive in ["low", "business", "self"]:
         return "低利他动机：公益合作运营推广"
@@ -269,7 +253,6 @@ init_state()
 
 
 def now_china_time_str():
-    """返回东八区时间字符串，避免服务器默认 UTC 导致提交时间不准。"""
     return (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
 
 
@@ -300,7 +283,6 @@ def save_result_to_csv(result):
 
 
 def reset_experiment():
-    """重置当前受试者状态，但保留 URL 中的实验条件参数。"""
     keep_params = dict(st.query_params)
     for key in list(st.session_state.keys()):
         del st.session_state[key]
@@ -331,36 +313,69 @@ def get_nudge_stages():
     return DEFAULT_STAGE_MAP.get(st.session_state.nudge_frequency, ["订单确认"])
 
 
+def is_valid_date_range():
+    return st.session_state.check_out > st.session_state.check_in
+
+
+def show_date_error_if_needed():
+    if not is_valid_date_range():
+        st.error("离店日期必须晚于入住日期，请重新选择入住和离店时间。")
+        return True
+    return False
+
+
+def nights_count():
+    if not is_valid_date_range():
+        return 0
+    nights = (st.session_state.check_out - st.session_state.check_in).days
+    return max(nights, 1)
+
+
+def fixed_image(url, height=220, radius=16):
+    st.markdown(
+        f"""
+        <div style="width:100%; height:{height}px; overflow:hidden; border-radius:{radius}px; background:#f3f4f6;">
+            <img src="{url}" style="width:100%; height:100%; object-fit:cover; display:block;" />
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def get_product_text():
     if st.session_state.product_cause_fit.startswith("高匹配"):
         return (
             "公益动物玩偶",
-            "【公益计划】本酒店长期与濒危动物保护基金会合作开展公益活动。您愿意购买这个毛绒公仔来参加此次公益项目吗？活动的全部收益都将捐出用于濒危动物的保护工作。",
+            "【公益计划】本酒店长期与濒危动物保护基金会合作开展公益活动。您愿意购买这份限定款毛绒公仔来支持此次公益项目吗？",
         )
     return (
         "公益明信片",
-        "【公益计划】本酒店长期与濒危动物保护基金会合作开展公益活动。您愿意购买这款明信片来支持此次公益项目吗？活动的全部收益都将捐出用于濒危动物的保护工作。",
+        "【公益计划】本酒店长期与濒危动物保护基金会合作开展公益活动。您愿意购买这份限定款明信片来支持此次公益项目吗？",
     )
 
 
 def get_campaign_price():
-    """高匹配动物玩偶129元；低匹配明信片159元。"""
     if st.session_state.product_cause_fit.startswith("高匹配"):
         return 129.0
     return 159.0
 
 
-def get_campaign_image_path():
-    """根据高/低匹配度返回公益产品图片。图片不存在时返回 None，避免程序报错。"""
-    if st.session_state.product_cause_fit.startswith("高匹配"):
-        return TOY_IMAGE_PATH if TOY_IMAGE_PATH.exists() else None
-    return POSTCARD_IMAGE_PATH if POSTCARD_IMAGE_PATH.exists() else None
-
-
 def get_motivation_text():
     if st.session_state.altruistic_motivation.startswith("高利他"):
         return "本次活动收益将全额捐赠给合作基金会，酒店不从中获得商业利润。"
-    return "本次活动收益将用于公益项目及酒店公益合作项目的运营推广。"
+    return "本次活动收益的50%将捐赠给合作基金会，50%用于商品的制作和项目运营。"
+
+
+def get_fit_product_label():
+    if st.session_state.product_cause_fit.startswith("高匹配"):
+        return "毛绒公仔"
+    return "明信片"
+
+
+def get_campaign_image_path():
+    if st.session_state.product_cause_fit.startswith("高匹配"):
+        return TOY_IMAGE_PATH if TOY_IMAGE_PATH.exists() else None
+    return POSTCARD_IMAGE_PATH if POSTCARD_IMAGE_PATH.exists() else None
 
 
 def add_campaign_to_order():
@@ -402,18 +417,6 @@ def skip_campaign_order():
     st.toast("已选择暂不参与公益加购。", icon="ℹ️")
 
 
-def fixed_image(url, height=220, radius=16):
-    """固定比例裁切图片，避免 OTA 酒店图片高低不一、位置混乱。"""
-    st.markdown(
-        f"""
-        <div style="width:100%; height:{height}px; overflow:hidden; border-radius:{radius}px; background:#f3f4f6;">
-            <img src="{url}" style="width:100%; height:100%; object-fit:cover; display:block;" />
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
 def show_campaign_status():
     if st.session_state.get("cart_campaign_added", False):
         st.markdown(
@@ -428,6 +431,7 @@ def show_nudge(stage_name):
     product_name, product_desc = get_product_text()
     motivation_text = get_motivation_text()
     product_image = get_campaign_image_path()
+
     exposure_key = f"{stage_name}_{st.session_state.nudge_frequency}_{st.session_state.product_cause_fit}_{st.session_state.altruistic_motivation}"
     if exposure_key not in st.session_state.nudge_exposed_keys:
         st.session_state.nudge_seen += 1
@@ -489,25 +493,6 @@ def maybe_show_nudge():
         show_nudge(st.session_state.stage)
 
 
-def is_valid_date_range():
-    """检查日期是否合法：离店日期必须晚于入住日期。"""
-    return st.session_state.check_out > st.session_state.check_in
-
-
-def show_date_error_if_needed():
-    if not is_valid_date_range():
-        st.error("离店日期必须晚于入住日期，请重新选择入住和离店时间。")
-        return True
-    return False
-
-
-def nights_count():
-    if not is_valid_date_range():
-        return 0
-    nights = (st.session_state.check_out - st.session_state.check_in).days
-    return max(nights, 1)
-
-
 def total_price():
     campaign_price = st.session_state.cart_campaign_price if st.session_state.cart_campaign_added else 0.0
     return st.session_state.room_price * nights_count() + campaign_price
@@ -524,7 +509,6 @@ def show_steps():
 
 
 def back_button(label="返回上一步"):
-    """统一的返回按钮：受试者也可以正常退回上一个页面。"""
     if STAGES.index(st.session_state.stage) > 0:
         if st.button(label, key=f"back_{st.session_state.stage}"):
             prev_stage()
@@ -590,6 +574,7 @@ def render_detail():
     hotel_header()
     show_steps()
     back_button("返回首页")
+
     st.markdown(
         f"""
         <div class="hotel-card">
@@ -668,14 +653,14 @@ def order_summary(show_actions=True):
 
     if st.session_state.cart_campaign_added:
         st.markdown(
-            f"<div class='cart-line'><span>{st.session_state.cart_campaign_name}</span><b>¥{st.session_state.cart_campaign_price}</b></div>",
+            f"<div class='cart-line'><span>{st.session_state.cart_campaign_name}</span><b>¥{st.session_state.cart_campaign_price:g}</b></div>",
             unsafe_allow_html=True,
         )
         st.markdown("<span class='success-tag'>公益加购已加入最终结账单</span>", unsafe_allow_html=True)
     else:
         st.markdown("<div class='cart-line'><span>公益加购</span><b>未加入</b></div>", unsafe_allow_html=True)
 
-    st.markdown(f"<div class='total'>合计 ¥{total_price()}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='total'>合计 ¥{total_price():g}</div>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
     if show_actions and st.session_state.cart_campaign_added:
@@ -686,12 +671,14 @@ def render_order():
     hotel_header()
     show_steps()
     back_button("返回房型选择")
+
     if not st.session_state.selected_room:
         st.warning("请先选择房型。")
         if st.button("返回房型选择"):
             go_stage("房型选择")
             st.rerun()
         return
+
     left, right = st.columns([1.5, 1])
     with left:
         st.markdown("### 确认订单信息")
@@ -715,6 +702,7 @@ def render_payment():
     hotel_header()
     show_steps()
     back_button("返回订单确认")
+
     left, right = st.columns([1.4, 1])
     with left:
         st.markdown("### 支付页面")
@@ -722,7 +710,7 @@ def render_payment():
         st.radio("选择支付方式", ["银行卡支付", "支付宝", "微信支付"], horizontal=True)
         if st.button("确认支付", type="primary"):
             st.session_state.paid = True
-            log_event("paid", f"支付金额 ¥{total_price()}")
+            log_event("paid", f"支付金额 ¥{total_price():g}")
             next_stage()
             st.rerun()
     with right:
@@ -730,20 +718,8 @@ def render_payment():
 
 
 # =========================
-# OTA 界面
+# OTA界面
 # =========================
-
-def ota_shell_start():
-    """
-    V4.8修复：去掉跨组件 HTML 外壳。
-    Streamlit 组件不能稳定放进一个长期开着的 div 里，否则会出现大空白框。
-    """
-    return None
-
-
-def ota_shell_end():
-    return None
-
 
 def choose_hotel(hotel):
     st.session_state.selected_hotel_name = hotel["name"]
@@ -757,7 +733,6 @@ def choose_hotel(hotel):
 
 
 def render_ota_home():
-    ota_shell_start()
     st.markdown("<div class='ota-header'><span>酒店预订</span><span style='font-size:13px;color:#888;'>筛选 · 排序 · 地图</span></div>", unsafe_allow_html=True)
     st.markdown("<div class='ota-search'>已检索：城市核心区域 · 酒店列表 · 请选择酒店并完成预订</div>", unsafe_allow_html=True)
     show_steps()
@@ -802,11 +777,9 @@ def render_ota_home():
                 disabled=not is_valid_date_range(),
             )
         st.markdown("</div>", unsafe_allow_html=True)
-    ota_shell_end()
 
 
 def render_ota_detail():
-    ota_shell_start()
     hotel_name = st.session_state.get("selected_hotel_name", HOTEL_CN)
     hotel_en = st.session_state.get("selected_hotel_en", HOTEL_EN)
     hotel_score = st.session_state.get("selected_hotel_score", "4.8")
@@ -838,23 +811,23 @@ def render_ota_detail():
         fixed_image(hotel_gallery[2], height=210, radius=16)
 
     maybe_show_nudge()
+
     if st.button("选择房型", type="primary", use_container_width=True):
         go_stage("房型选择")
         st.rerun()
-    ota_shell_end()
 
 
 def render_ota_rooms():
-    ota_shell_start()
     st.markdown("<div class='ota-header'><span>选择房型</span><span style='font-size:13px;color:#888;'>价格明细</span></div>", unsafe_allow_html=True)
     show_steps()
     back_button("返回酒店详情")
     maybe_show_nudge()
+
     for i, room in enumerate(ROOMS):
         st.markdown("<div class='ota-room-card'>", unsafe_allow_html=True)
         c1, c2 = st.columns([1, 1.7])
         with c1:
-            st.image(room["img"], use_container_width=True)
+            fixed_image(room["img"], height=180, radius=14)
         with c2:
             st.markdown(f"**{room['name']}**")
             st.caption(room["desc"])
@@ -869,11 +842,9 @@ def render_ota_rooms():
                 use_container_width=True,
             )
         st.markdown("</div>", unsafe_allow_html=True)
-    ota_shell_end()
 
 
 def render_ota_order():
-    ota_shell_start()
     show_steps()
     back_button("返回房型选择")
     if not st.session_state.selected_room:
@@ -881,8 +852,8 @@ def render_ota_order():
         if st.button("返回房型选择"):
             go_stage("房型选择")
             st.rerun()
-        ota_shell_end()
         return
+
     st.markdown("### 确认订单")
     maybe_show_nudge()
     order_summary()
@@ -896,11 +867,9 @@ def render_ota_order():
             next_stage()
             st.rerun()
     show_date_error_if_needed()
-    ota_shell_end()
 
 
 def render_ota_payment():
-    ota_shell_start()
     show_steps()
     back_button("返回订单确认")
     st.markdown("### 收银台")
@@ -909,10 +878,9 @@ def render_ota_payment():
     st.radio("支付方式", ["支付宝", "微信支付", "银行卡"], horizontal=True)
     if st.button("确认支付", type="primary", use_container_width=True):
         st.session_state.paid = True
-        log_event("paid", f"支付金额 ¥{total_price()}")
+        log_event("paid", f"支付金额 ¥{total_price():g}")
         next_stage()
         st.rerun()
-    ota_shell_end()
 
 
 # =========================
@@ -920,7 +888,6 @@ def render_ota_payment():
 # =========================
 
 def slider_value_to_number(value):
-    """把 '1 非常不同意' 这样的滑块文本转成数字，方便后续导出数据分析。"""
     try:
         return int(str(value).split()[0])
     except Exception:
@@ -982,23 +949,25 @@ def motive_scale(label, key):
 def render_survey():
     hotel_header()
     show_steps()
+    back_button("返回上一页查看")
     st.markdown("### 预订体验问卷")
     st.markdown("请根据刚才的网页浏览与预订体验回答以下问题。")
 
     mc_frequency = frequency_check("1. 您认为酒店的公益营销活动信息的展示频率如何？", "mc_frequency")
     mc_recall_count = recall_check("2. 您是否还记得在刚才的网页中遇到过几次公益营销界面？", "mc_recall_count")
 
-    reactance_1 = likert("3. 这条酒店APP推送的公益信息限制了我的选择自由。", "reactance_1")
-    reactance_2 = likert("4. 这条酒店APP推送的公益信息试图操控我。", "reactance_2")
-    reactance_3 = likert("5. 这条酒店APP推送的公益信息似乎替我做了决定。", "reactance_3")
-    reactance_4 = likert("6. 这条酒店APP推送的公益信息让我感到有些压力。", "reactance_4")
-    reactance_5 = likert("7. 我觉得这条酒店APP推送的公益信息试图支配我的行为。", "reactance_5")
-    reactance_6 = likert("8. 我感觉这条酒店APP推送的公益信息想让我按照它的意图去做。", "reactance_6")
-    reactance_7 = likert("9. 我感到这条酒店APP推送的公益信息让我被迫采取某种行动。", "reactance_7")
+    reactance_1 = likert("3. 这条酒店网页推送的公益信息限制了我的选择自由。", "reactance_1")
+    reactance_2 = likert("4. 这条酒店网页推送的公益信息试图操控我。", "reactance_2")
+    reactance_3 = likert("5. 这条酒店网页推送的公益信息似乎替我做了决定。", "reactance_3")
+    reactance_4 = likert("6. 这条酒店网页推送的公益信息让我感到有些压力。", "reactance_4")
+    reactance_5 = likert("7. 我觉得这条酒店网页推送的公益信息试图支配我的行为。", "reactance_5")
+    reactance_6 = likert("8. 我感觉这条酒店网页推送的公益信息想让我按照它的意图去做。", "reactance_6")
+    reactance_7 = likert("9. 我感到这条酒店网页推送的公益信息让我被迫采取某种行动。", "reactance_7")
 
-    fit_1 = likert("10. 酒店公益信息提及的动物公仔，与支持动物救助事业的公益目标很契合。", "fit_1")
-    fit_2 = likert("11. 酒店公益信息提及的动物公仔与动物救助事业紧密相连。", "fit_2")
-    fit_3 = likert("12. 用动物公仔销售的收益支持动物救助事业，是顺理成章且极为合适的公益举措。", "fit_3")
+    fit_product = get_fit_product_label()
+    fit_1 = likert(f"10. 酒店公益信息提及的{fit_product}，与支持动物救助事业的公益目标很契合。", "fit_1")
+    fit_2 = likert(f"11. 酒店公益信息提及的{fit_product}与动物救助事业紧密相连。", "fit_2")
+    fit_3 = likert(f"12. 用{fit_product}销售的收益支持动物救助事业，是顺理成章且极为合适的公益举措。", "fit_3")
 
     altruism_1 = motive_scale("13. 您认为这项公益活动在多大程度上是出于酒店自身利益的动机，还是出于对社会责任的关注？", "altruism_1")
     altruism_2 = motive_scale("14. 您认为这项公益活动在多大程度上是出于追求利润的动机，还是出于社会责任的动机？", "altruism_2")
@@ -1016,6 +985,7 @@ def render_survey():
                 "submit_time": now_china_time_str(),
                 "participant_id": st.session_state.participant_id,
                 "interface_mode": st.session_state.interface_mode,
+                "selected_hotel_name": st.session_state.get("selected_hotel_name", HOTEL_CN),
                 "nudge_frequency": st.session_state.nudge_frequency,
                 "product_cause_fit": st.session_state.product_cause_fit,
                 "altruistic_motivation": st.session_state.altruistic_motivation,
@@ -1058,7 +1028,7 @@ def render_survey():
 
 
 # =========================
-# 页面分发
+# 页面分发与后台
 # =========================
 
 def render_ota_wrapper():
@@ -1097,7 +1067,6 @@ def render_participant_app():
 
 
 def make_participant_url():
-    """根据后台当前选择生成受试者测试链接。"""
     mode = "ota" if st.session_state.interface_mode == "OTA界面" else "hotel"
     freq_map = {
         "低频：仅支付前出现1次": "low",
@@ -1118,26 +1087,31 @@ def render_admin_panel():
     with st.sidebar:
         st.header("后台控制台")
         st.caption("公开测试时，不要把带 ?admin=1 的链接发给受试者。")
+
         st.session_state.interface_mode = st.selectbox(
             "界面类型",
             ["酒店官网界面", "OTA界面"],
             index=["酒店官网界面", "OTA界面"].index(st.session_state.interface_mode),
         )
+
         st.session_state.nudge_frequency = st.selectbox(
             "数字助推频率",
             list(DEFAULT_STAGE_MAP.keys()),
             index=list(DEFAULT_STAGE_MAP.keys()).index(st.session_state.nudge_frequency),
         )
+
         st.session_state.product_cause_fit = st.selectbox(
             "产品-公益匹配度",
             ["高匹配：毛绒公仔 × 濒危动物保护", "低匹配：明信片 × 濒危动物保护"],
             index=["高匹配：毛绒公仔 × 濒危动物保护", "低匹配：明信片 × 濒危动物保护"].index(st.session_state.product_cause_fit),
         )
+
         st.session_state.altruistic_motivation = st.selectbox(
             "感知利他动机",
             ["高利他动机：全部收益捐出", "低利他动机：公益合作运营推广"],
             index=["高利他动机：全部收益捐出", "低利他动机：公益合作运营推广"].index(st.session_state.altruistic_motivation),
         )
+
         st.divider()
         st.write("当前阶段：", st.session_state.stage)
         c1, c2 = st.columns(2)
@@ -1149,6 +1123,7 @@ def render_admin_panel():
             if st.button("下一步"):
                 next_stage()
                 st.rerun()
+
         if st.button("重置实验", type="secondary"):
             reset_experiment()
 
@@ -1159,8 +1134,10 @@ def render_admin_panel():
         st.caption("把你的网页基础链接后面接上这段参数，就会打开对应实验条件的受试者页面。")
 
     tab1, tab2, tab3 = st.tabs(["受试者页面预览", "数据下载", "使用说明"])
+
     with tab1:
         render_participant_app()
+
     with tab2:
         st.markdown("### 实验数据")
         if DATA_PATH.exists():
@@ -1207,6 +1184,7 @@ def render_admin_panel():
                     st.rerun()
         else:
             st.info("目前还没有行为日志。")
+
     with tab3:
         st.markdown(
             """
@@ -1227,8 +1205,6 @@ def render_admin_panel():
             所以你不需要每个实验条件都重新生成一个网页，只要改后台条件，然后复制生成出来的参数链接即可。
 
             当前版本为测试版。正式实验前建议继续加入：自动随机分组、最短作答时间、注意力检测、重复提交限制。
-
-            图片说明：当前使用公开图库链接。正式实验时建议替换为统一风格的本地图片，避免外部网络导致图片加载失败。
             """
         )
 

@@ -1,12 +1,9 @@
 # Hotel Booking Experiment App
 
-This is a Streamlit-based hotel booking experiment simulation system.
+Run locally:
 
-It includes:
-- Star-rated hotel official website simulation
-- Chinese OTA booking flow simulation
-- Digital nudge frequency manipulation
-- Cause-related marketing module
-- Product-cause fit manipulation
-- Altruistic motivation manipulation
-- Participation intention and psychological reactance measurement
+```bash
+python -m streamlit run hotel_booking_experiment_app.py
+```
+
+Admin page: add `?admin=1` to the URL.
