@@ -2,11 +2,12 @@ import streamlit as st
 import pandas as pd
 from datetime import date, timedelta, datetime
 import uuid
+import csv
 from pathlib import Path
 
 
 # =========================================================
-# 酒店预订实验系统 V5.1
+# 酒店预订实验系统 FINAL：实验1b/实验2问卷版本
 # 功能：
 # 1. 受试者页面 / 后台管理页面分离
 # 2. 酒店官网界面 / OTA界面
@@ -28,6 +29,56 @@ st.set_page_config(
 
 DATA_PATH = Path("experiment_data.csv")
 EVENT_PATH = Path("experiment_events.csv")
+
+RESULT_COLUMNS = [
+    "submit_time",
+    "participant_id",
+    "survey_version",
+    "interface_mode",
+    "selected_hotel_name",
+    "nudge_frequency",
+    "product_cause_fit",
+    "altruistic_motivation",
+    "nudge_seen",
+    "selected_room",
+    "room_price",
+    "joined_campaign",
+    "campaign_product_name",
+    "donation_amount",
+    "total_price",
+    "paid",
+    "mc_frequency",
+    "mc_recall_count",
+    "reactance_1",
+    "reactance_2",
+    "reactance_3",
+    "reactance_4",
+    "reactance_5",
+    "reactance_6",
+    "reactance_7",
+    "fit_1",
+    "fit_2",
+    "fit_3",
+    "altruism_1",
+    "altruism_2",
+    "altruism_3",
+    "birth_year",
+    "gender",
+]
+
+EVENT_COLUMNS = [
+    "time",
+    "participant_id",
+    "stage",
+    "event_type",
+    "detail",
+]
+
+SURVEY_VERSION_LABELS = {
+    "full": "完整问卷：操纵检验+心理机制+调节变量",
+    "exp1b": "实验1b：仅操纵检验+人口信息",
+    "exp2": "实验2：操纵检验+心理机制+人口信息",
+}
 
 HOTEL_CN = "星澜酒店"
 HOTEL_EN = "Starland Hotel"
@@ -224,6 +275,7 @@ def init_state():
         "nudge_frequency": get_initial_nudge_frequency(),
         "product_cause_fit": get_initial_product_fit(),
         "altruistic_motivation": get_initial_altruistic_motivation(),
+        "survey_version": get_initial_survey_version(),
         "selected_room": "",
         "room_price": 0,
         "check_in": date.today() + timedelta(days=7),
@@ -262,6 +314,7 @@ def current_condition_signature():
         st.session_state.nudge_frequency,
         st.session_state.product_cause_fit,
         st.session_state.altruistic_motivation,
+        st.session_state.get("survey_version", get_initial_survey_version()),
     ])
 
 
@@ -303,16 +356,23 @@ def log_event(event_type, detail=""):
 def save_events_to_csv():
     if not st.session_state.events:
         return
-    df = pd.DataFrame(st.session_state.events)
-    header = not EVENT_PATH.exists()
-    df.to_csv(EVENT_PATH, mode="a", index=False, header=header, encoding="utf-8-sig")
+    file_exists = EVENT_PATH.exists()
+    with EVENT_PATH.open("a", newline="", encoding="utf-8-sig") as f:
+        writer = csv.DictWriter(f, fieldnames=EVENT_COLUMNS, extrasaction="ignore")
+        if not file_exists:
+            writer.writeheader()
+        for event in st.session_state.events:
+            writer.writerow({col: event.get(col, "") for col in EVENT_COLUMNS})
     st.session_state.events = []
 
 
 def save_result_to_csv(result):
-    df = pd.DataFrame([result])
-    header = not DATA_PATH.exists()
-    df.to_csv(DATA_PATH, mode="a", index=False, header=header, encoding="utf-8-sig")
+    file_exists = DATA_PATH.exists()
+    with DATA_PATH.open("a", newline="", encoding="utf-8-sig") as f:
+        writer = csv.DictWriter(f, fieldnames=RESULT_COLUMNS, extrasaction="ignore")
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow({col: result.get(col, "") for col in RESULT_COLUMNS})
 
 
 def reset_experiment():
@@ -1018,33 +1078,47 @@ def render_survey():
     hotel_header()
     show_steps()
     back_button("返回上一页查看")
+
+    survey_version = st.session_state.get("survey_version", get_initial_survey_version())
     st.markdown("### 预订体验问卷")
+    st.caption(f"当前问卷版本：{SURVEY_VERSION_LABELS.get(survey_version, survey_version)}")
     st.markdown("请根据刚才的网页浏览与预订体验回答以下问题。")
 
-    mc_frequency = frequency_check("1. 您认为酒店的公益营销活动信息的展示频率如何？", "mc_frequency")
-    mc_recall_count = recall_check("2. 您是否还记得在刚才的网页中遇到过几次公益营销界面？", "mc_recall_count")
+    q_no = 1
+    mc_frequency = frequency_check(f"{q_no}. 您认为酒店的公益营销活动信息的展示频率如何？", "mc_frequency")
+    q_no += 1
+    mc_recall_count = recall_check(f"{q_no}. 您是否还记得在刚才的网页中遇到过几次公益营销界面？", "mc_recall_count")
+    q_no += 1
 
-    reactance_1 = likert("3. 这条酒店网页推送的公益信息限制了我的选择自由。", "reactance_1")
-    reactance_2 = likert("4. 这条酒店网页推送的公益信息试图操控我。", "reactance_2")
-    reactance_3 = likert("5. 这条酒店网页推送的公益信息似乎替我做了决定。", "reactance_3")
-    reactance_4 = likert("6. 这条酒店网页推送的公益信息让我感到有些压力。", "reactance_4")
-    reactance_5 = likert("7. 我觉得这条酒店网页推送的公益信息试图支配我的行为。", "reactance_5")
-    reactance_6 = likert("8. 我感觉这条酒店网页推送的公益信息想让我按照它的意图去做。", "reactance_6")
-    reactance_7 = likert("9. 我感到这条酒店网页推送的公益信息让我被迫采取某种行动。", "reactance_7")
+    # 预设为空值，确保不同实验版本导出字段稳定一致。
+    reactance_1 = reactance_2 = reactance_3 = reactance_4 = reactance_5 = reactance_6 = reactance_7 = ""
+    fit_1 = fit_2 = fit_3 = ""
+    altruism_1 = altruism_2 = altruism_3 = ""
 
-    fit_product = get_fit_product_label()
-    fit_1 = likert(f"10. 酒店公益信息提及的{fit_product}，与支持动物救助事业的公益目标很契合。", "fit_1")
-    fit_2 = likert(f"11. 酒店公益信息提及的{fit_product}与动物救助事业紧密相连。", "fit_2")
-    fit_3 = likert(f"12. 用{fit_product}销售的收益支持动物救助事业，是顺理成章且极为合适的公益举措。", "fit_3")
+    if survey_version in ["full", "exp2"]:
+        reactance_1 = likert(f"{q_no}. 这条酒店网页推送的公益信息限制了我的选择自由。", "reactance_1"); q_no += 1
+        reactance_2 = likert(f"{q_no}. 这条酒店网页推送的公益信息试图操控我。", "reactance_2"); q_no += 1
+        reactance_3 = likert(f"{q_no}. 这条酒店网页推送的公益信息似乎替我做了决定。", "reactance_3"); q_no += 1
+        reactance_4 = likert(f"{q_no}. 这条酒店网页推送的公益信息让我感到有些压力。", "reactance_4"); q_no += 1
+        reactance_5 = likert(f"{q_no}. 我觉得这条酒店网页推送的公益信息试图支配我的行为。", "reactance_5"); q_no += 1
+        reactance_6 = likert(f"{q_no}. 我感觉这条酒店网页推送的公益信息想让我按照它的意图去做。", "reactance_6"); q_no += 1
+        reactance_7 = likert(f"{q_no}. 我感到这条酒店网页推送的公益信息让我被迫采取某种行动。", "reactance_7"); q_no += 1
 
-    altruism_1 = motive_scale("13. 您认为这项公益活动在多大程度上是出于酒店自身利益的动机，还是出于对社会责任的关注？", "altruism_1")
-    altruism_2 = motive_scale("14. 您认为这项公益活动在多大程度上是出于追求利润的动机，还是出于社会责任的动机？", "altruism_2")
-    altruism_3 = motive_scale("15. 您认为这项公益活动在多大程度上是出于自我导向（利己）的动机，还是出于利他主义的动机？", "altruism_3")
+    if survey_version == "full":
+        fit_product = get_fit_product_label()
+        fit_1 = likert(f"{q_no}. 酒店公益信息提及的{fit_product}，与支持动物救助事业的公益目标很契合。", "fit_1"); q_no += 1
+        fit_2 = likert(f"{q_no}. 酒店公益信息提及的{fit_product}与动物救助事业紧密相连。", "fit_2"); q_no += 1
+        fit_3 = likert(f"{q_no}. 用{fit_product}销售的收益支持动物救助事业，是顺理成章且极为合适的公益举措。", "fit_3"); q_no += 1
+
+        altruism_1 = motive_scale(f"{q_no}. 您认为这项公益活动在多大程度上是出于酒店自身利益的动机，还是出于对社会责任的关注？", "altruism_1"); q_no += 1
+        altruism_2 = motive_scale(f"{q_no}. 您认为这项公益活动在多大程度上是出于追求利润的动机，还是出于社会责任的动机？", "altruism_2"); q_no += 1
+        altruism_3 = motive_scale(f"{q_no}. 您认为这项公益活动在多大程度上是出于自我导向（利己）的动机，还是出于利他主义的动机？", "altruism_3"); q_no += 1
 
     st.markdown("---")
-    st.markdown("<div class='survey-question'>16. 您的出生年份是</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='survey-question'>{q_no}. 您的出生年份是</div>", unsafe_allow_html=True)
     birth_year = st.number_input(" ", min_value=1940, max_value=date.today().year, value=2000, step=1, key="birth_year", label_visibility="collapsed")
-    st.markdown("<div class='survey-question'>17. 您的性别是</div>", unsafe_allow_html=True)
+    q_no += 1
+    st.markdown(f"<div class='survey-question'>{q_no}. 您的性别是</div>", unsafe_allow_html=True)
     gender = st.radio(" ", options=["男", "女"], horizontal=True, key="gender", label_visibility="collapsed")
 
     if not st.session_state.survey_submitted:
@@ -1052,6 +1126,7 @@ def render_survey():
             result = {
                 "submit_time": now_china_time_str(),
                 "participant_id": st.session_state.participant_id,
+                "survey_version": survey_version,
                 "interface_mode": st.session_state.interface_mode,
                 "selected_hotel_name": st.session_state.get("selected_hotel_name", HOTEL_CN),
                 "nudge_frequency": st.session_state.nudge_frequency,
@@ -1135,6 +1210,18 @@ def render_participant_app():
         render_survey()
 
 
+def safe_read_csv(path):
+    try:
+        return pd.read_csv(path)
+    except pd.errors.ParserError:
+        try:
+            return pd.read_csv(path, on_bad_lines="skip")
+        except Exception:
+            return None
+    except Exception:
+        return None
+
+
 def make_participant_url():
     mode = "ota" if st.session_state.interface_mode == "OTA界面" else "hotel"
     freq_map = {
@@ -1146,7 +1233,8 @@ def make_participant_url():
     fit = "low" if st.session_state.product_cause_fit.startswith("低匹配") else "high"
     motive = "low" if st.session_state.altruistic_motivation.startswith("低利他") else "high"
     freq = freq_map.get(st.session_state.nudge_frequency, "medium")
-    return f"?mode={mode}&freq={freq}&fit={fit}&motive={motive}"
+    survey = st.session_state.get("survey_version", get_initial_survey_version())
+    return f"?mode={mode}&freq={freq}&fit={fit}&motive={motive}&survey={survey}"
 
 
 def render_admin_panel():
@@ -1181,6 +1269,14 @@ def render_admin_panel():
             index=["高利他动机：全部收益捐出", "低利他动机：公益合作运营推广"].index(st.session_state.altruistic_motivation),
         )
 
+        survey_options = list(SURVEY_VERSION_LABELS.keys())
+        st.session_state.survey_version = st.selectbox(
+            "问卷版本",
+            survey_options,
+            format_func=lambda x: SURVEY_VERSION_LABELS.get(x, x),
+            index=survey_options.index(st.session_state.get("survey_version", get_initial_survey_version())),
+        )
+
         st.divider()
         st.write("当前阶段：", st.session_state.stage)
         c1, c2 = st.columns(2)
@@ -1210,7 +1306,14 @@ def render_admin_panel():
     with tab2:
         st.markdown("### 实验数据")
         if DATA_PATH.exists():
-            df = pd.read_csv(DATA_PATH)
+            df = safe_read_csv(DATA_PATH)
+            if df is None:
+                st.error("实验数据文件读取失败，通常是旧版本数据与新版字段不一致。")
+                if st.button("删除损坏的实验数据文件，重新开始收集", type="primary"):
+                    DATA_PATH.unlink(missing_ok=True)
+                    st.success("已删除损坏的数据文件。")
+                    st.rerun()
+                st.stop()
             st.dataframe(df, use_container_width=True)
             st.download_button("下载实验结果 CSV", data=DATA_PATH.read_bytes(), file_name="experiment_data.csv", mime="text/csv")
 
@@ -1234,7 +1337,14 @@ def render_admin_panel():
 
         st.markdown("### 行为日志")
         if EVENT_PATH.exists():
-            event_df = pd.read_csv(EVENT_PATH)
+            event_df = safe_read_csv(EVENT_PATH)
+            if event_df is None:
+                st.error("行为日志文件读取失败。")
+                if st.button("删除损坏的行为日志文件，重新开始记录", type="primary"):
+                    EVENT_PATH.unlink(missing_ok=True)
+                    st.success("已删除损坏的行为日志文件。")
+                    st.rerun()
+                st.stop()
             st.dataframe(event_df, use_container_width=True)
             st.download_button("下载行为日志 CSV", data=EVENT_PATH.read_bytes(), file_name="experiment_events.csv", mime="text/csv")
 
