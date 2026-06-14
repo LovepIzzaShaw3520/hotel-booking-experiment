@@ -267,6 +267,17 @@ def get_initial_altruistic_motivation():
     return "高利他动机：全部收益捐出"
 
 
+
+def get_initial_survey_version():
+    """通过URL参数选择问卷版本：?survey=full / exp1b / exp2。"""
+    survey = st.query_params.get("survey", "full").lower()
+    if survey in ["exp1b", "1b", "experiment1b"]:
+        return "exp1b"
+    if survey in ["exp2", "2", "experiment2"]:
+        return "exp2"
+    return "full"
+
+
 def init_state():
     defaults = {
         "participant_id": str(uuid.uuid4())[:8],
